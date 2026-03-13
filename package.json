@@ -1,5 +1,5 @@
 {
-  "name": "blaze",
+  "name": "Blaze",
   "private": true,
   "scripts": {
     "build": "turbo run build",
