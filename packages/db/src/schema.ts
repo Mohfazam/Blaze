@@ -19,3 +19,15 @@ export const pages = pgTable("pages", {
   contentHash: text("content_hash"),
   lastCrawledAt: timestamp("last_crawled_at")
 })
+
+export const translations = pgTable("translations", {
+  id: uuid("id").primaryKey().defaultRandom(),
+
+  pageId: uuid("page_id")
+    .notNull()
+    .references(() => pages.id),
+
+  language: text("language").notNull(),
+  translatedText: text("translated_text").notNull(),
+  versionHash: text("version_hash")
+})
