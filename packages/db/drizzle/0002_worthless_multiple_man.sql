@@ -1,0 +1,1 @@
+ALTER TABLE "websites" ALTER COLUMN "languages" SET DEFAULT '[]'::json;

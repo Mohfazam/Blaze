@@ -1,0 +1,1 @@
+ALTER TABLE "websites" ADD COLUMN "languages" json NOT NULL;
