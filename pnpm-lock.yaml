@@ -30,6 +30,9 @@ importers:
         specifier: ^5.2.1
         version: 5.2.1
     devDependencies:
+      '@blaze/db':
+        specifier: workspace:*
+        version: link:../../packages/db
       '@blaze/types':
         specifier: workspace:*
         version: link:../../packages/types

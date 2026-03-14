@@ -14,6 +14,7 @@
   "devDependencies": {
     "@repo/typescript-config": "workspace:*",
     "@blaze/types": "workspace:*",
+    "@blaze/db": "workspace:*",
     "@types/cors": "^2.8.19",
     "@types/express": "^5.0.6",
     "@types/node": "^25.5.0",
