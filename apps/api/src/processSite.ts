@@ -1,6 +1,6 @@
 
 import { db, websites, eq } from "@blaze/db"
-
+import {crawler} from "@blaze/crawler"
 
 export async function processSite(siteId: string) {
   try {
