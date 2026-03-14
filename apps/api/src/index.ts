@@ -4,7 +4,7 @@ import dotenv from "dotenv"
 import {CreateSiteSchema} from "@blaze/types"
 import {processSite} from "./processSite"
 
-import { db, websites } from "@blaze/db"
+import { db, websites, eq } from "@blaze/db"
 
 dotenv.config()
 
@@ -32,6 +32,32 @@ app.get("/db-test", async (_, res) => {
     res.status(500).json({ error: "DB failed" })
   }
 });
+
+app.get("/sites/:id", async (req, res) => {
+  const { id } = req.params
+
+  try {
+    const result = await db
+      .select()
+      .from(websites)
+      .where(eq(websites.id, id))
+
+    if (result.length === 0) {
+      return res.status(404).json({ error: "Site not found" })
+    }
+
+    const site = result[0]
+
+    return res.json({
+      siteId: site!.id,
+      status: site!.status
+    })
+
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to fetch status" })
+  }
+})
+
 
 
 app.post("/sites", async (req, res) => {
