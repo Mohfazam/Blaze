@@ -2,6 +2,7 @@ import express from "express"
 import cors from "cors"
 import dotenv from "dotenv"
 import {CreateSiteSchema} from "@blaze/types"
+import {processSite} from "./processSite"
 
 import { db, websites } from "@blaze/db"
 
@@ -42,15 +43,26 @@ app.post("/sites", async (req, res) => {
 
   const { url, languages } = parsed.data
 
-  const result = await db.insert(websites).values({
-    url,
-    status: "pending"
-  }).returning()
+  try {
+    const result = await db.insert(websites).values({
+      url,
+      status: "pending",
+      languages
+    }).returning()
 
-  res.json({
-    siteId: result[0]!.id,
-    status: "pending"
-  })
+    const siteId = result[0]!.id
+
+    // Fire async process without blocking request
+    void processSite(siteId)
+
+    return res.json({
+      siteId,
+      status: "pending"
+    })
+
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to create site" })
+  }
 })
 
 

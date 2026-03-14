@@ -2,7 +2,7 @@ import { z } from "zod"
 
 export const CreateSiteSchema = z.object({
   url: z.string().url(),
-  languages: z.array(z.string()).min(1).max(4)
+  languages: z.array(z.string()).max(3).default([])
 })
 
 export type CreateSiteInput = z.infer<typeof CreateSiteSchema>
