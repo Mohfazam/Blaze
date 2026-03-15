@@ -43,6 +43,13 @@
       "when": 1773606589914,
       "tag": "0005_mushy_pandemic",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1773607178083,
+      "tag": "0006_bouncy_daimon_hellstrom",
+      "breakpoints": true
     }
   ]
 }

@@ -70,3 +70,12 @@ export const embeddings = pgTable("embeddings", {
 
   vector: vector("vector", { dimensions: 3072  })
 })
+
+export const unansweredQueries = pgTable("unanswered_queries", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  siteId: uuid("site_id").notNull().references(() => websites.id),
+  question: text("question").notNull(),
+  email: text("email"),
+  language: text("language"),
+  createdAt: timestamp("created_at").defaultNow()
+})
