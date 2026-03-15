@@ -3,8 +3,8 @@ import cors from "cors"
 import dotenv from "dotenv"
 import {CreateSiteSchema} from "@blaze/types"
 import {processSite} from "./processSite"
+import { db, websites, pages, translations, eq } from "@blaze/db"
 
-import { db, websites, eq } from "@blaze/db"
 
 dotenv.config()
 
@@ -58,6 +58,27 @@ app.get("/sites/:id", async (req, res) => {
   }
 })
 
+app.get("/sites/:id/translations", async (req, res) => {
+  const { id } = req.params
+
+  const pageResult = await db
+    .select()
+    .from(pages)
+    .where(eq(pages.websiteId, id))
+
+  if (pageResult.length === 0) {
+    return res.status(404).json({ error: "No pages found" })
+  }
+
+  const pageId = pageResult[0]!.id
+
+  const result = await db
+    .select()
+    .from(translations)
+    .where(eq(translations.pageId, pageId))
+
+  return res.json(result)
+})
 
 
 app.post("/sites", async (req, res) => {

@@ -19,12 +19,14 @@ export const websites = pgTable("websites", {
 
 export const pages = pgTable("pages", {
   id: uuid("id").primaryKey().defaultRandom(),
+  baseText: text("base_text").notNull(),
 
   websiteId: uuid("website_id")
     .notNull()
     .references(() => websites.id),
 
   url: text("url").notNull(),
+  
 
   title: text("title"),
 
