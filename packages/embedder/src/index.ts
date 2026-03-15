@@ -1,7 +1,6 @@
-import { GoogleGenerativeAI } from "@google/generative-ai"
+import { GoogleGenAI } from "@google/genai"
 
-const genai = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!)
-const model = genai.getGenerativeModel({ model: "text-embedding-004" })
+const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY! })
 
 export interface TextChunk {
   text: string
@@ -34,12 +33,17 @@ export async function embedChunks(
   chunks: TextChunk[]
 ): Promise<{ text: string; index: number; vector: number[] }[]> {
   const results = await Promise.all(
-    chunks.map(chunk => model.embedContent(chunk.text))
+    chunks.map(chunk =>
+      ai.models.embedContent({
+        model: "gemini-embedding-001",
+        contents: chunk.text
+      })
+    )
   )
 
   return chunks.map((chunk, i) => ({
     text: chunk.text,
     index: chunk.index,
-    vector: results[i]!.embedding.values
+    vector: results[i]!.embeddings![0]!.values!
   }))
 }
