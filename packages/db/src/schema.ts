@@ -68,5 +68,5 @@ export const embeddings = pgTable("embeddings", {
 
   positionIndex: integer("position_index"),
 
-  vector: vector("vector", { dimensions: 1536 })
+  vector: vector("vector", { dimensions: 768 })
 })
