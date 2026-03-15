@@ -3,7 +3,7 @@ import cors from "cors"
 import dotenv from "dotenv"
 import {CreateSiteSchema} from "@blaze/types"
 import {processSite} from "./processSite"
-import { db, websites, pages, translations, eq, pool } from "@blaze/db"
+import { db, websites, pages, translations, embeddings, eq, pool } from "@blaze/db"
 import { handleAsk, handleEmailCapture } from "./ask"
 
 
@@ -96,6 +96,41 @@ app.get("/sites/:id/translations", async (req, res) => {
 })
 
 //POST ROutes//
+
+app.post("/sites/:id/reprocess", async (req, res) => {
+  const { id } = req.params
+  try {
+    // Find all pages for this site
+    const sitePages = await db.select().from(pages).where(eq(pages.websiteId, id))
+
+    for (const page of sitePages) {
+      // Find all translations for this page
+      const pageTranslations = await db.select().from(translations).where(eq(translations.pageId, page.id))
+
+      // Delete embeddings for each translation
+      for (const t of pageTranslations) {
+        await db.delete(embeddings).where(eq(embeddings.translationId, t.id))
+      }
+
+      // Delete translations
+      await db.delete(translations).where(eq(translations.pageId, page.id))
+    }
+
+    // Delete pages
+    await db.delete(pages).where(eq(pages.websiteId, id))
+
+    // Reset status
+    await db.update(websites).set({ status: "pending" }).where(eq(websites.id, id))
+
+    // Re-run processing
+    void processSite(id)
+
+    return res.json({ status: "reprocessing" })
+  } catch (err) {
+    console.error(err)
+    return res.status(500).json({ error: "Reprocess failed" })
+  }
+})
 
 
 app.post("/ask", async (req, res) => {

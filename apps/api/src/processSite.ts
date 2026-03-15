@@ -29,10 +29,15 @@ export async function processSite(siteId: string) {
     await db.update(websites).set({ status: "translating" }).where(eq(websites.id, siteId))
     const targetLanguages = site.languages ?? []
 
+    // Always insert English (original) as a translation row so it can be embedded + searched
+    const translationRows: { pageId: string; language: string; translatedText: string; versionHash: string }[] = [
+      { pageId, language: "en", translatedText: crawled.text, versionHash: contentHash }
+    ]
+
     if (targetLanguages.length > 0) {
       const translated = await translateText(crawled.text, targetLanguages)
-      await db.insert(translations).values(
-        Object.entries(translated).map(([language, translatedText]) => ({
+      translationRows.push(
+        ...Object.entries(translated).map(([language, translatedText]) => ({
           pageId,
           language,
           translatedText: translatedText as string,
@@ -40,6 +45,8 @@ export async function processSite(siteId: string) {
         }))
       )
     }
+
+    await db.insert(translations).values(translationRows)
 
     // indexing
     await db.update(websites).set({ status: "indexing" }).where(eq(websites.id, siteId))
@@ -49,14 +56,9 @@ export async function processSite(siteId: string) {
       .from(translations)
       .where(eq(translations.pageId, pageId))
 
-    // also embed the original English text
-    const toEmbed = [
-      { translationId: null, text: crawled.text },
-      ...allTranslations.map(t => ({ translationId: t.id, text: t.translatedText }))
-    ]
+    const toEmbed = allTranslations.map(t => ({ translationId: t.id, text: t.translatedText }))
 
     for (const { translationId, text } of toEmbed) {
-      if (!translationId) continue
       const chunks = chunkText(text)
       const embedded = await embedChunks(chunks)
 
