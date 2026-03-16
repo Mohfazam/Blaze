@@ -1,22 +1,28 @@
 import { GoogleGenAI } from "@google/genai"
+import Groq from "groq-sdk"
 import { db, pool, embeddings, translations, unansweredQueries, eq, sql } from "@blaze/db"
 
 const ai = new GoogleGenAI({ apiKey: process.env.GOOGLE_API_KEY! })
+const groq = new Groq({ apiKey: process.env.GROQ_API_KEY! })
 
-// Step 1: Detect language
+// Step 1: Detect language (Groq)
 async function detectLanguage(text: string): Promise<string> {
   try {
-    const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash",
-      contents: `Return only the ISO 639-1 language code (e.g. en, fr, es) of this text. No explanation, just the code: "${text}"`
+    const res = await groq.chat.completions.create({
+      model: "llama3-8b-8192",
+      messages: [{
+        role: "user",
+        content: `Return only the ISO 639-1 language code (e.g. en, fr, es) of this text. No explanation, just the code: "${text}"`
+      }],
+      max_tokens: 5
     })
-    return response.text?.trim().toLowerCase() ?? "en"
+    return res.choices[0]?.message?.content?.trim().toLowerCase() ?? "en"
   } catch {
     return "en"
   }
 }
 
-// Step 2: Embed question
+// Step 2: Embed question (Gemini — keep as-is, vectors already stored with this model)
 async function embedQuestion(text: string): Promise<number[]> {
   const result = await ai.models.embedContent({
     model: "gemini-embedding-001",
@@ -54,51 +60,58 @@ async function searchChunks(vector: number[], language: string, siteId: string) 
   }
 }
 
-// Step 4+5: Generate answer from chunks
-async function generateAnswer(question: string, chunks: { chunk_text: string }[]): Promise<string> {
+// Step 4: Generate answer (Groq)
+async function generateAnswer(question: string, chunks: { chunk_text: string }[], language: string): Promise<string> {
   const context = chunks.map(c => c.chunk_text).join("\n\n")
 
-  const response = await ai.models.generateContent({
-    model: "gemini-2.0-flash",
-    contents: `You are answering using ONLY the provided context. Do not use outside knowledge. If the answer is not found in the context, say "not found".
+  const response = await groq.chat.completions.create({
+    model: "llama-3.3-70b-versatile",
+    messages: [
+      {
+        role: "system",
+        content: `You are a helpful website assistant. You answer visitor questions strictly based on the provided website content.
 
-Context:
+Rules:
+- Answer ONLY from the context provided. Never use outside knowledge.
+- Be concise and friendly. 2-3 sentences max.
+- Respond in the same language as the question (language: ${language}).
+- If the context does not contain the answer, respond with exactly: "not found"
+- Never make up information.`
+      },
+      {
+        role: "user",
+        content: `Context from website:
 ${context}
 
-Question: ${question}`
+Visitor question: ${question}`
+      }
+    ]
   })
 
-  return response.text?.trim() ?? "not found"
+  return response.choices[0]?.message?.content?.trim() ?? "not found"
 }
 
 // POST /ask
 export async function handleAsk(siteId: string, question: string) {
-  // 1. Detect language
   const language = await detectLanguage(question)
-
-  // 2. Embed question
   const vector = await embedQuestion(question)
 
-  // 3. Search in detected language
   let chunks = await searchChunks(vector, language, siteId)
   console.log("Detected language:", language)
-console.log("Chunks found:", chunks.length)
-console.log("Top similarity:", chunks[0]?.similarity)
-console.log("All similarities:", chunks.map(c => c.similarity))
+  console.log("Chunks found:", chunks.length)
+  console.log("Top similarity:", chunks[0]?.similarity)
+  console.log("All similarities:", chunks.map(c => c.similarity))
 
-  // 4. Fallback to English if no results
   if (chunks.length === 0) {
     chunks = await searchChunks(vector, "en", siteId)
   }
 
-  // 5. Threshold check — distance > 0.5 means weak
   const topSimilarity = chunks[0]?.similarity ?? 0
   if (chunks.length === 0 || topSimilarity < 0.5) {
     return { answer: null, needsEmail: true }
   }
 
-  // 6. Generate grounded answer
-  const answer = await generateAnswer(question, chunks)
+  const answer = await generateAnswer(question, chunks, language)
 
   if (answer === "not found") {
     return { answer: null, needsEmail: true }
