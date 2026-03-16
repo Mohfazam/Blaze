@@ -3,7 +3,7 @@ import cors from "cors"
 import dotenv from "dotenv"
 import {CreateSiteSchema} from "@blaze/types"
 import {processSite} from "./processSite"
-import { db, websites, pages, translations, embeddings, eq, pool } from "@blaze/db"
+import { db, websites, pages, translations, embeddings, eq, pool, unansweredQueries } from "@blaze/db"
 import { handleAsk, handleEmailCapture } from "./ask"
 
 
@@ -33,6 +33,14 @@ app.get("/debug/:siteId", async (req, res) => {
   res.json(result.rows)
 })
 
+app.get("/queries", async (_, res) => {
+  try {
+    const result = await db.select().from(unansweredQueries)
+    return res.json(result)
+  } catch (err) {
+    return res.status(500).json({ error: "Failed to fetch queries" })
+  }
+})
 
 app.get("/db-test", async (_, res) => {
   try {
