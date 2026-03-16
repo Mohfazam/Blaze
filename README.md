@@ -1,159 +1,156 @@
-# Turborepo starter
+# Blaze
 
-This Turborepo starter is maintained by the Turborepo core team.
+**Multilingual AI support, embedded in any website.**
 
-## Using this example
+Blaze lets website owners add an intelligent Q&A assistant to their site in minutes. Visitors ask questions in any language — Blaze finds the answer from the site's own content. No hallucinations. No generic responses. Just grounded, accurate answers from what the site actually says.
 
-Run the following command:
+---
 
-```sh
-npx create-turbo@latest
+## What it does
+
+1. **Owner registers a site** on the Blaze dashboard
+2. **Blaze crawls the page** using Playwright
+3. **Translates the content** into selected languages via lingo.dev
+4. **Embeds the content** using Google's `gemini-embedding-001` (3072 dimensions) stored in pgvector
+5. **Visitor asks a question** — Blaze detects the language, runs a vector search, and generates a grounded answer via Groq (LLaMA 3.3 70B)
+6. **If no answer is found** — visitor leaves their email, stored as an unanswered query for the owner to follow up
+
+---
+
+## Architecture
+```
+monorepo (turborepo + pnpm workspaces)
+├── apps/
+│   ├── api/          → Express backend (the brain)
+│   ├── dashboard/    → Next.js owner platform
+│   ├── widget/       → Vanilla JS embeddable chat widget
+│   └── extension/    → Chrome extension (index any page on demand)
+└── packages/
+    ├── db/           → Drizzle ORM + Neon PostgreSQL + pgvector
+    ├── crawler/      → Playwright page crawler
+    ├── i18n/         → lingo.dev translation
+    ├── embedder/     → Google Gemini embeddings
+    └── types/        → Shared Zod schemas
 ```
 
-## What's inside?
+---
 
-This Turborepo includes the following packages/apps:
+## Tech stack
 
-### Apps and Packages
+| Layer | Technology |
+|---|---|
+| Monorepo | Turborepo + pnpm workspaces |
+| Backend | Express + TypeScript |
+| Database | Neon (PostgreSQL) + pgvector |
+| ORM | Drizzle ORM |
+| Crawler | Playwright (Chromium) |
+| Translation | lingo.dev SDK |
+| Embeddings | Google Gemini `gemini-embedding-001` |
+| LLM | Groq `llama-3.3-70b-versatile` |
+| Dashboard | Next.js 15 + Tailwind CSS |
+| Widget | Vanilla TypeScript + Vite |
+| Extension | React + Vite + Chrome MV3 |
 
-- `docs`: a [Next.js](https://nextjs.org/) app
-- `web`: another [Next.js](https://nextjs.org/) app
-- `@repo/ui`: a stub React component library shared by both `web` and `docs` applications
-- `@repo/eslint-config`: `eslint` configurations (includes `eslint-config-next` and `eslint-config-prettier`)
-- `@repo/typescript-config`: `tsconfig.json`s used throughout the monorepo
+---
 
-Each package/app is 100% [TypeScript](https://www.typescriptlang.org/).
+## Flow
+```
+POST /sites
+  → crawlPage()         [Playwright]
+  → translateText()     [lingo.dev]
+  → embedChunks()       [Gemini]
+  → store in pgvector   [Neon]
 
-### Utilities
+POST /ask
+  → detectLanguage()    [Groq]
+  → embedQuestion()     [Gemini]
+  → vector search       [pgvector cosine similarity]
+  → generateAnswer()    [Groq LLaMA 3.3 70B]
+  → return answer or needsEmail: true
 
-This Turborepo has some additional tools already setup for you:
-
-- [TypeScript](https://www.typescriptlang.org/) for static type checking
-- [ESLint](https://eslint.org/) for code linting
-- [Prettier](https://prettier.io) for code formatting
-
-### Build
-
-To build all apps and packages, run the following command:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo build
+POST /ask/email
+  → store in unanswered_queries
 ```
 
-Without global `turbo`, use your package manager:
+---
 
-```sh
-cd my-turborepo
-npx turbo build
-yarn dlx turbo build
-pnpm exec turbo build
+## Getting started
+
+### Prerequisites
+- Node.js 18+
+- pnpm
+- Neon database (free tier works)
+- API keys: Google AI Studio, Groq, lingo.dev
+
+### Install
+```bash
+pnpm install
 ```
 
-You can build a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+### Environment variables
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo build --filter=docs
+**`apps/api/.env`**
+```env
+DATABASE_URL=your_neon_connection_string
+GOOGLE_API_KEY=your_google_ai_key
+GROQ_API_KEY=your_groq_key
+LINGODOTDEV_API_KEY=your_lingo_key
 ```
 
-Without global `turbo`:
-
-```sh
-npx turbo build --filter=docs
-yarn exec turbo build --filter=docs
-pnpm exec turbo build --filter=docs
+**`packages/db/.env`**
+```env
+DATABASE_URL=your_neon_direct_connection_string
 ```
 
-### Develop
+### Run
+```bash
+# API
+cd apps/api && pnpm dev
 
-To develop all apps and packages, run the following command:
+# Dashboard
+cd apps/dashboard && pnpm dev
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
+# Widget (dev build)
+cd apps/widget && pnpm build
 
-```sh
-cd my-turborepo
-turbo dev
+# Extension
+cd apps/extension && pnpm build
+# Then load apps/extension/dist in chrome://extensions
 ```
 
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo dev
-yarn exec turbo dev
-pnpm exec turbo dev
+### Database setup
+```bash
+cd packages/db
+npx drizzle-kit push
 ```
 
-You can develop a specific package by using a [filter](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters):
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
+## The three surfaces
 
-```sh
-turbo dev --filter=web
+### Widget
+Paste one script tag into any website:
+```html
+<script src="widget.js" data-site-id="your-site-id"></script>
 ```
+A floating chat bubble appears. Visitors ask questions, get answers, or leave their email.
 
-Without global `turbo`:
+### Dashboard
+Owners register sites, monitor indexing progress, copy their embed snippet, and view unanswered queries.
 
-```sh
-npx turbo dev --filter=web
-yarn exec turbo dev --filter=web
-pnpm exec turbo dev --filter=web
-```
+### Chrome Extension
+Browse any website, click the Blaze icon, and index it on demand. Then ask questions about the page directly from the extension popup — no website owner required.
 
-### Remote Caching
+---
 
-> [!TIP]
-> Vercel Remote Cache is free for all plans. Get started today at [vercel.com](https://vercel.com/signup?utm_source=remote-cache-sdk&utm_campaign=free_remote_cache).
+## Database schema
 
-Turborepo can use a technique known as [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching) to share cache artifacts across machines, enabling you to share build caches with your team and CI/CD pipelines.
+- `websites` — registered sites with status and languages
+- `pages` — crawled pages with base text and content hash
+- `translations` — translated content per language
+- `embeddings` — vector chunks (3072 dim) linked to translations
+- `unanswered_queries` — email captures for follow-up
 
-By default, Turborepo will cache locally. To enable Remote Caching you will need an account with Vercel. If you don't have an account you can [create one](https://vercel.com/signup?utm_source=turborepo-examples), then enter the following commands:
+---
 
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed (recommended):
-
-```sh
-cd my-turborepo
-turbo login
-```
-
-Without global `turbo`, use your package manager:
-
-```sh
-cd my-turborepo
-npx turbo login
-yarn exec turbo login
-pnpm exec turbo login
-```
-
-This will authenticate the Turborepo CLI with your [Vercel account](https://vercel.com/docs/concepts/personal-accounts/overview).
-
-Next, you can link your Turborepo to your Remote Cache by running the following command from the root of your Turborepo:
-
-With [global `turbo`](https://turborepo.dev/docs/getting-started/installation#global-installation) installed:
-
-```sh
-turbo link
-```
-
-Without global `turbo`:
-
-```sh
-npx turbo link
-yarn exec turbo link
-pnpm exec turbo link
-```
-
-## Useful Links
-
-Learn more about the power of Turborepo:
-
-- [Tasks](https://turborepo.dev/docs/crafting-your-repository/running-tasks)
-- [Caching](https://turborepo.dev/docs/crafting-your-repository/caching)
-- [Remote Caching](https://turborepo.dev/docs/core-concepts/remote-caching)
-- [Filtering](https://turborepo.dev/docs/crafting-your-repository/running-tasks#using-filters)
-- [Configuration Options](https://turborepo.dev/docs/reference/configuration)
-- [CLI Usage](https://turborepo.dev/docs/reference/command-line-reference)
+Built for hackathon submission.
